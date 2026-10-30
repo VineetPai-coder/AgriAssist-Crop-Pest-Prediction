@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def calculate_confusion_matrix(y_true, y_pred_prob, threshold=0.5):
     """
     Computes confusion matrix entries: TP, FP, TN, FN.
