@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriAssist - Crop Pest Outbreak Prediction Dashboard</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React and ReactDOM via CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel for JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #f8fafc;
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('benchmarking');
+      const [benchmarkData, setBenchmarkData] = useState([]);
+      const [ablationData, setAblationData] = useState([]);
+      const [datasetStats, setDatasetStats] = useState(null);
+      
+      // Live Predictor State
+      const [temp, setTemp] = useState(28.5);
+      const [humidity, setHumidity] = useState(82.0);
+      const [precip, setPrecip] = useState(15.0);
+      const [ndvi, setNdvi] = useState(0.72);
+      const [cropStage, setCropStage] = useState('flowering');
+      const [predictions, setPredictions] = useState(null);
+      const [loading, setLoading] = useState(false);
+
+      useEffect(() => {
+        fetch('/api/benchmark')
+          .then(res => res.json())
+          .then(data => {
+            setBenchmarkData(data.benchmark || []);
+            setAblationData(data.ablation || []);
+          })
+          .catch(err => console.error(err));
+
+        fetch('/api/dataset-stats')
+          .then(res => res.json())
+          .then(data => setDatasetStats(data))
+          .catch(err => console.error(err));
+      }, []);
+
+      const runPrediction = async () => {
+        setLoading(true);
+        try {
+          const res = await fetch('/api/predict', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              temperature: parseFloat(temp),
+              relative_humidity: parseFloat(humidity),
+              precipitation: parseFloat(precip),
+              ndvi: parseFloat(ndvi),
+              crop_stage: cropStage
+            })
+          });
+          const data = await res.json();
+          setPredictions(data);
+        } catch (e) {
+          console.error("Prediction failed:", e);
+        }
+        setLoading(false);
+      };
+
+      return (
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xl shadow-md shadow-emerald-200">
+                  🌾
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-slate-900 leading-tight">
+                    AgriAssist
+                  </h1>
+                  <p className="text-xs text-slate-500 font-medium">Multimodal Time-Series Deep Learning for Crop Pest Outbreak Prediction</p>
+                </div>
+              </div>
+
+              {/* Navigation Tabs */}
+              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-sm font-medium">
+                {[
+                  { id: 'benchmarking', label: 'Architecture Benchmark' },
+                  { id: 'ablation', label: 'NDVI Ablation' },
+                  { id: 'dataset', label: 'Dataset & Signals' },
+                  { id: 'predictor', label: 'Live Predictor' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-3.5 py-1.5 rounded-lg transition-all duration-150 ${
+                      activeTab === tab.id
+                        ? 'bg-white text-emerald-800 shadow-sm font-semibold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </header>
+
+          {/* Main Body */}
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+            
+            {/* TAB 1: BENCHMARKING */}
+            {activeTab === 'benchmarking' && (
+              <div className="space-y-8 animate-fadeIn">
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900">Comparative Architecture Performance (Test Holdout: 171 Windows)</h2>
+                      <p className="text-sm text-slate-500">Benchmarking across 4 model families on identical 14-day temporal sequences</p>
+                    </div>
+                    <span className="text-xs font-semibold px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
+                      Evaluated on Holdout (1 Jan 2023 - 23 Feb 2026)
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                          <th className="py-3 px-4">Model Architecture</th>
+                          <th className="py-3 px-4">Family</th>
+                          <th className="py-3 px-4">Parameters</th>
+                          <th className="py-3 px-4">Accuracy</th>
+                          <th className="py-3 px-4">Precision</th>
+                          <th className="py-3 px-4">Recall</th>
+                          <th className="py-3 px-4">F1-Score</th>
+                          <th className="py-3 px-4">ROC-AUC</th>
+                          <th className="py-3 px-4">Highlight</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-sm">
+                        {benchmarkData.map((m, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-3.5 px-4 font-semibold text-slate-900">{m.model}</td>
+                            <td className="py-3.5 px-4 text-slate-600">{m.family}</td>
+                            <td className="py-3.5 px-4 font-mono text-xs text-slate-500">{m.parameters}</td>
+                            <td className={`py-3.5 px-4 font-mono ${m.accuracy === 0.8421 ? 'text-emerald-600 font-bold' : 'text-slate-700'}`}>{(m.accuracy * 100).toFixed(2)}%</td>
+                            <td className="py-3.5 px-4 font-mono text-slate-700">{(m.precision * 100).toFixed(2)}%</td>
+                            <td className="py-3.5 px-4 font-mono text-slate-700">{(m.recall * 100).toFixed(2)}%</td>
+                            <td className={`py-3.5 px-4 font-mono ${m.f1 === 0.3750 ? 'text-emerald-600 font-bold' : 'text-slate-700'}`}>{m.f1.toFixed(4)}</td>
+                            <td className={`py-3.5 px-4 font-mono ${m.roc_auc === 0.7069 ? 'text-emerald-600 font-bold' : 'text-slate-700'}`}>{m.roc_auc.toFixed(4)}</td>
+                            <td className="py-3.5 px-4">
+                              {m.highlight ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                                  {m.highlight}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 text-xs">Baseline</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Visual outputs row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <h3 className="font-semibold text-slate-900 mb-3 text-sm flex items-center justify-between">
+                      <span>Confusion Matrices (Decision Threshold 0.5)</span>
+                      <span className="text-xs text-slate-400 font-normal">2×2 Classification Grids</span>
+                    </h3>
+                    <img src="/outputs/confusion_matrices.png" alt="Confusion Matrices" className="w-full rounded-xl border border-slate-100" />
+                  </div>
+
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <h3 className="font-semibold text-slate-900 mb-3 text-sm flex items-center justify-between">
+                      <span>ROC Curves & AUC</span>
+                      <span className="text-xs text-slate-400 font-normal">Sensitivity vs 1-Specificity</span>
+                    </h3>
+                    <img src="/outputs/roc_curves.png" alt="ROC Curves" className="w-full rounded-xl border border-slate-100" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: ABLATION STUDY */}
+            {activeTab === 'ablation' && (
+              <div className="space-y-8 animate-fadeIn">
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                  <h2 className="text-lg font-bold text-slate-900 mb-1">
+                    NDVI (Normalized Difference Vegetation Index) Ablation Study
+                  </h2>
+                  <p className="text-sm text-slate-500 mb-6">
+                    Quantifying predictive gain when fusing satellite vegetation health proxies [NDVI = (NIR - Red) / (NIR + Red)] with agro-meteorological series
+                  </p>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                          <th className="py-3 px-4">Model Architecture</th>
+                          <th className="py-3 px-4">F1 (With NDVI)</th>
+                          <th className="py-3 px-4">F1 (Without NDVI)</th>
+                          <th className="py-3 px-4">Δ F1 Impact</th>
+                          <th className="py-3 px-4">AUC (With NDVI)</th>
+                          <th className="py-3 px-4">AUC (Without NDVI)</th>
+                          <th className="py-3 px-4">Δ AUC Impact</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-sm">
+                        {ablationData.map((row, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/70">
+                            <td className="py-3.5 px-4 font-semibold text-slate-900">{row.model}</td>
+                            <td className="py-3.5 px-4 font-mono">{row.f1_with_ndvi.toFixed(4)}</td>
+                            <td className="py-3.5 px-4 font-mono text-slate-600">{row.f1_without_ndvi.toFixed(4)}</td>
+                            <td className="py-3.5 px-4 font-mono font-semibold text-emerald-600">{row.delta_f1}</td>
+                            <td className="py-3.5 px-4 font-mono">{row.auc_with_ndvi.toFixed(4)}</td>
+                            <td className="py-3.5 px-4 font-mono text-slate-600">{row.auc_without_ndvi.toFixed(4)}</td>
+                            <td className="py-3.5 px-4 font-mono font-semibold text-emerald-600">{row.delta_auc}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                  <h3 className="font-semibold text-slate-900 mb-3 text-sm">NDVI Feature Ablation Impact Visual</h3>
+                  <img src="/outputs/ndvi_ablation_study.png" alt="Ablation Study" className="w-full max-h-[500px] object-contain rounded-xl border border-slate-100" />
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: DATASET & SIGNALS */}
+            {activeTab === 'dataset' && (
+              <div className="space-y-8 animate-fadeIn">
+                {datasetStats && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Longitudinal Days</p>
+                      <p className="text-2xl font-bold text-slate-900 mt-1">{datasetStats.total_days.toLocaleString()} Days</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{datasetStats.date_span}</p>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Outbreak Prevalence</p>
+                      <p className="text-2xl font-bold text-amber-600 mt-1">{datasetStats.outbreak_rate}%</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{datasetStats.outbreaks} Positive Labels</p>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Sliding Window Format</p>
+                      <p className="text-2xl font-bold text-slate-900 mt-1">14 Days</p>
+                      <p className="text-xs text-slate-500 mt-0.5">1,137 Sequences Formed</p>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Split Protocol</p>
+                      <p className="text-2xl font-bold text-emerald-700 mt-1">70 / 15 / 15</p>
+                      <p className="text-xs text-slate-500 mt-0.5">795 Train | 171 Val | 171 Test</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                  <h3 className="font-semibold text-slate-900 mb-3 text-sm">Longitudinal Agro-Meteorological & Satellite NDVI Signals</h3>
+                  <img src="/outputs/eda_time_series.png" alt="EDA Time Series" className="w-full rounded-xl border border-slate-100" />
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: LIVE PREDICTOR */}
+            {activeTab === 'predictor' && (
+              <div className="space-y-8 animate-fadeIn">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  
+                  {/* Controls Column */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                    <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-3">Simulate Environmental Conditions</h2>
+                    
+                    <div>
+                      <div className="flex justify-between text-xs font-medium text-slate-700 mb-1.5">
+                        <span>Mean Temperature</span>
+                        <span className="font-bold text-emerald-700">{temp} °C</span>
+                      </div>
+                      <input 
+                        type="range" min="12" max="42" step="0.5" value={temp} 
+                        onChange={e => setTemp(e.target.value)}
+                        className="w-full accent-emerald-600 cursor-pointer" 
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-xs font-medium text-slate-700 mb-1.5">
+                        <span>Relative Humidity</span>
+                        <span className="font-bold text-emerald-700">{humidity} %</span>
+                      </div>
+                      <input 
+                        type="range" min="30" max="98" step="1" value={humidity} 
+                        onChange={e => setHumidity(e.target.value)}
+                        className="w-full accent-emerald-600 cursor-pointer" 
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-xs font-medium text-slate-700 mb-1.5">
+                        <span>Precipitation</span>
+                        <span className="font-bold text-emerald-700">{precip} mm</span>
+                      </div>
+                      <input 
+                        type="range" min="0" max="60" step="0.5" value={precip} 
+                        onChange={e => setPrecip(e.target.value)}
+                        className="w-full accent-emerald-600 cursor-pointer" 
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-xs font-medium text-slate-700 mb-1.5">
+                        <span>NDVI (Normalized Difference Vegetation Index)</span>
+                        <span className="font-bold text-emerald-700">{ndvi}</span>
+                      </div>
+                      <input 
+                        type="range" min="0.10" max="0.90" step="0.02" value={ndvi} 
+                        onChange={e => setNdvi(e.target.value)}
+                        className="w-full accent-emerald-600 cursor-pointer" 
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-1.5">Crop Phenological Stage</label>
+                      <select 
+                        value={cropStage} onChange={e => setCropStage(e.target.value)}
+                        className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      >
+                        <option value="early">Early Stage</option>
+                        <option value="mid">Mid Vegetative</option>
+                        <option value="flowering">Flowering Stage (Peak Risk)</option>
+                        <option value="harvest">Harvest Stage</option>
+                      </select>
+                    </div>
+
+                    <button
+                      onClick={runPrediction}
+                      disabled={loading}
+                      className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold rounded-xl shadow-md shadow-emerald-200 transition-all flex items-center justify-center gap-2"
+                    >
+                      {loading ? 'Evaluating Tensors...' : 'Run Live Inference Across All 4 Models'}
+                    </button>
+                  </div>
+
+                  {/* Results Column */}
+                  <div className="lg:col-span-2 space-y-6">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <h3 className="text-base font-bold text-slate-900 mb-4">Real-Time Outbreak Inference Results</h3>
+
+                      {predictions ? (
+                        <div>
+                          <div className="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                            <div>
+                              <p className="text-xs uppercase tracking-wider font-semibold text-slate-400">Environmental Risk Factor Score</p>
+                              <p className="text-xl font-bold text-slate-800">{predictions.heuristic_score}%</p>
+                            </div>
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              predictions.heuristic_score >= 50 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                            }`}>
+                              {predictions.heuristic_score >= 50 ? 'Severe Outbreak Conditions' : 'Normal Conditions'}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {predictions.results.map((res, i) => (
+                              <div 
+                                key={i} 
+                                className={`p-4 rounded-2xl border-2 text-center transition-all ${
+                                  res.outbreak ? 'border-red-500 bg-red-50/40' : 'border-emerald-500 bg-emerald-50/40'
+                                }`}
+                              >
+                                <p className="text-xs font-bold uppercase text-slate-500">{res.model}</p>
+                                <p className={`text-3xl font-extrabold my-2 ${res.outbreak ? 'text-red-600' : 'text-emerald-700'}`}>
+                                  {res.probability}%
+                                </p>
+                                <p className={`text-xs font-bold ${res.outbreak ? 'text-red-700' : 'text-emerald-800'}`}>
+                                  {res.status}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 text-slate-400">
+                          <p className="text-3xl mb-2">⚡</p>
+                          <p className="text-sm font-medium">Click "Run Live Inference" on the left to pass simulated parameters through all 4 deep learning models.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </main>
+
+          {/* Footer */}
+          <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400">
+            ICT-4442 Deep Learning Mini Project • AgriAssist • Manipal Institute of Technology (MAHE)
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

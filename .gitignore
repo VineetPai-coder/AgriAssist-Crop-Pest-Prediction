@@ -29,7 +29,7 @@ Thumbs.db
 *.suo
 *.user
 
-# Large model weights / checkpoints
+# Model checkpoints / large files
 *.pt
 *.pth
 *.ckpt
@@ -37,3 +37,12 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Documents & PDFs (Exclude from repo)
+*.pdf
+*.docx
+*.doc
+
+# Temporary guide scripts
+*viva*
+generate_*.py
